@@ -5,8 +5,13 @@ import com.example.pzapigateway.exception.ForbiddenRequestException;
 import com.example.pzapigateway.exception.NoContentException;
 import com.example.pzapigateway.security.JwtTokenProvider;
 import com.example.pzapigateway.service.UserService;
+import com.example.pzapigateway.web.client.ArticleClient;
 import com.example.pzapigateway.web.client.UserDetailsClient;
 import com.example.pzapigateway.web.client.UserSecurityClient;
+import com.example.pzapigateway.web.dto.article.ArticleRespDto;
+import com.example.pzapigateway.web.dto.article.NewArticleReqDto;
+import com.example.pzapigateway.web.dto.article.NewTopicReqDto;
+import com.example.pzapigateway.web.dto.article.TopicRespDto;
 import com.example.pzapigateway.web.dto.details.NewUserLocationResp;
 import com.example.pzapigateway.web.dto.details.PatchUserDto;
 import com.example.pzapigateway.web.dto.details.UserDto;
@@ -16,11 +21,13 @@ import com.example.pzapigateway.web.dto.gateway.UserLoginReqDto;
 import com.example.pzapigateway.web.dto.secutity.NewUserSecretReqDto;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,6 +39,7 @@ public class AuthGateway {
     private UserSecurityClient userSecurityClient;
     private JwtTokenProvider tokenProvider;
     private UserService userService;
+    private ArticleClient articleClient;
 
     @PostMapping("/signup")
     ResponseEntity<?> signup(@RequestBody NewUserReqDto dto) {
@@ -80,11 +88,11 @@ public class AuthGateway {
     }
 
     @GetMapping("/user")
-    ResponseEntity<?> userById(HttpServletRequest req) {
+    ResponseEntity<?> userById(@RequestParam(required = false) UUID id, HttpServletRequest req) {
         String jwt = tokenProvider.resolveToken(req);
-        UUID id = userService.getDetailsUUIDBySecretUUID(jwt);
-        if (id == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-        UserDto byId = userDetailsClient.getUserDetailsById(id);
+        UUID selfId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (selfId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        UserDto byId = userDetailsClient.getUserDetailsById(id == null ? selfId : id);
         return new ResponseEntity<>(byId, HttpStatus.OK);
     }
 
@@ -123,5 +131,123 @@ public class AuthGateway {
     @GetMapping("/user/by_username")
     ResponseEntity<?> getUserByUsername(@RequestParam String username) {
         return new ResponseEntity<>(userDetailsClient.getUserDetailsByUsername(username), HttpStatus.OK);
+    }
+
+    @PostMapping("/article")
+    ResponseEntity<?> saveNewArticle(@RequestBody NewArticleReqDto dto, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID userId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (userId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        dto.setAuthor(userId);
+        try {
+            ArticleRespDto saved = articleClient.saveArticle(dto);
+            return new ResponseEntity<>(saved, HttpStatus.CREATED);
+        } catch (BadRequestException e){
+            return new ResponseEntity<>(e.getBody(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @PutMapping("/article/{id}")
+    ResponseEntity<?> updateArticle(@RequestBody ArticleRespDto dto, @PathVariable UUID id, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID userId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (userId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        dto.setAuthor(userId);
+        try {
+            ArticleRespDto resp = articleClient.updateArticle(dto, id);
+            return new ResponseEntity<>(resp, HttpStatus.OK);
+        } catch (BadRequestException e){
+            return new ResponseEntity<>(e.getBody(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DeleteMapping("/article/{id}")
+    ResponseEntity<?> deleteArticle(@PathVariable UUID id, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID userId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (userId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        ArticleRespDto a = articleClient.getArticle(id);
+        if(a==null) return new ResponseEntity<>(HttpStatus.OK);
+        if(!a.getAuthor().equals(userId)){
+            return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+        }
+        articleClient.deleteArticle(id);
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @GetMapping("/article/search")
+    ResponseEntity<?> searchArticles(
+            @RequestParam(required = false) UUID author,
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) List<String> tags,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "10") int size
+    ){
+        return new ResponseEntity<>(articleClient.searchArticle(
+                author, title, tags, start, end, page, size
+        ), HttpStatus.OK);
+    }
+
+    @GetMapping("/topic/{id}")
+    ResponseEntity<?> getTopic(@PathVariable UUID id){
+        return new ResponseEntity<>(articleClient.getTopic(id), HttpStatus.OK);
+    }
+
+    @PostMapping("/topic")
+    ResponseEntity<?> saveTopic(@RequestBody NewTopicReqDto dto, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID userId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (userId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        dto.setAuthor(userId);
+        try {
+            TopicRespDto resp = articleClient.saveTopic(dto);
+            return new ResponseEntity<>(resp, HttpStatus.CREATED);
+        } catch (BadRequestException e){
+            return new ResponseEntity<>(e.getBody(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @GetMapping("/topic/all")
+    ResponseEntity<?> getAllTopics(@RequestParam(required = false) String title){
+        if (title==null) {
+            return new ResponseEntity<>(articleClient.getAllTopics(), HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(articleClient.getAllTopics(title), HttpStatus.OK);
+        }
+    }
+
+    @PutMapping("/topic/{id}")
+    ResponseEntity<?> updateTopic(@PathVariable UUID id, @RequestBody NewTopicReqDto dto, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID userId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (userId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        dto.setAuthor(userId);
+        try {
+            TopicRespDto resp = articleClient.updateTopic(dto, id);
+            return new ResponseEntity<>(resp, HttpStatus.OK);
+        } catch (BadRequestException e){
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DeleteMapping("/topic/{id}")
+    ResponseEntity<?> deleteTopic(@PathVariable UUID id, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID userId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (userId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        TopicRespDto topic = articleClient.getTopic(id);
+        if(topic==null) return new ResponseEntity<>(HttpStatus.OK);
+        if(!topic.getAuthor().equals(userId)){
+            return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+        }
+        articleClient.deleteTopic(id);
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @GetMapping("/topic/all/by_user/{id}")
+    ResponseEntity<?> getTopicsForUser(@PathVariable UUID id){
+        return new ResponseEntity<>(articleClient.getTopics(id), HttpStatus.OK);
     }
 }
