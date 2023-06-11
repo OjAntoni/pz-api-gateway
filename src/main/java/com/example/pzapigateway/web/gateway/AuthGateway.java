@@ -6,8 +6,13 @@ import com.example.pzapigateway.exception.NoContentException;
 import com.example.pzapigateway.security.JwtTokenProvider;
 import com.example.pzapigateway.service.UserService;
 import com.example.pzapigateway.web.client.ArticleClient;
+import com.example.pzapigateway.web.client.UserActivityClient;
 import com.example.pzapigateway.web.client.UserDetailsClient;
 import com.example.pzapigateway.web.client.UserSecurityClient;
+import com.example.pzapigateway.web.dto.activity.CommentReqDto;
+import com.example.pzapigateway.web.dto.activity.CommentRespDto;
+import com.example.pzapigateway.web.dto.activity.SubscriptionReqDto;
+import com.example.pzapigateway.web.dto.activity.SubscriptionRespDto;
 import com.example.pzapigateway.web.dto.article.ArticleRespDto;
 import com.example.pzapigateway.web.dto.article.NewArticleReqDto;
 import com.example.pzapigateway.web.dto.article.NewTopicReqDto;
@@ -40,6 +45,7 @@ public class AuthGateway {
     private JwtTokenProvider tokenProvider;
     private UserService userService;
     private ArticleClient articleClient;
+    private UserActivityClient activityClient;
 
     @PostMapping("/signup")
     ResponseEntity<?> signup(@RequestBody NewUserReqDto dto) {
@@ -249,5 +255,93 @@ public class AuthGateway {
     @GetMapping("/topic/all/by_user/{id}")
     ResponseEntity<?> getTopicsForUser(@PathVariable UUID id){
         return new ResponseEntity<>(articleClient.getTopics(id), HttpStatus.OK);
+    }
+
+    @GetMapping("/comment")
+    ResponseEntity<?> getCommentsForArticle(@RequestParam UUID postId){
+        return new ResponseEntity<>(activityClient.getComments(postId), HttpStatus.OK);
+    }
+
+    @PostMapping("/comment")
+    ResponseEntity<?> createComment(@RequestBody CommentReqDto dto, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID userId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (userId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        dto.setAuthorId(userId);
+        try {
+            CommentRespDto resp = activityClient.saveComment(dto);
+            return new ResponseEntity<>(resp, HttpStatus.CREATED);
+        } catch (BadRequestException e){
+            return new ResponseEntity<>(e.getBody(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @PutMapping("/comment/{id}")
+    ResponseEntity<?> updateComment(@PathVariable UUID id, @RequestBody CommentReqDto dto, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID userId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (userId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        CommentRespDto c = activityClient.getComment(id);
+        if(c==null) return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        dto.setAuthorId(c.getAuthorId());
+        dto.setArticleId(c.getArticleId());
+        ArticleRespDto article = articleClient.getArticle(dto.getArticleId());
+        if(article==null) return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        try {
+            return new ResponseEntity<>(activityClient.updateComment(id, dto), HttpStatus.OK);
+        } catch (BadRequestException e){
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DeleteMapping("/comment/{id}")
+    ResponseEntity<?> deleteComment(@PathVariable UUID id, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID userId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (userId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        CommentRespDto c = activityClient.getComment(id);
+        if(c != null && !c.getAuthorId().equals(userId)) return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+        activityClient.deleteComment(id);
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @GetMapping("/subscription/all")
+    ResponseEntity<?> getAllCommentsForUser(@RequestParam(required = false) UUID userId, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID uId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (uId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        if (userId==null) {
+          userId =  uId;
+        }
+        return new ResponseEntity<>(activityClient.getSubscriptions(userId), HttpStatus.OK);
+    }
+
+    @PostMapping("/subscription")
+    ResponseEntity<?> createSubscription(@RequestBody SubscriptionReqDto dto, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID uId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (uId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        dto.setUserId(uId);
+        UUID topicId = dto.getTopicId();
+        if (topicId==null || articleClient.getTopic(topicId) == null) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+        try {
+            SubscriptionRespDto resp = activityClient.saveSubscription(dto);
+            return new ResponseEntity<>(resp, HttpStatus.OK);
+        } catch (BadRequestException e){
+            return new ResponseEntity<>(e.getBody(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DeleteMapping("/subscription/{id}")
+    ResponseEntity<?> seleteSubscription(@PathVariable UUID id, HttpServletRequest req){
+        String jwt = tokenProvider.resolveToken(req);
+        UUID userId = userService.getDetailsUUIDBySecretUUID(jwt);
+        if (userId == null) return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        SubscriptionRespDto s = activityClient.getSubscription(id);
+        if(s!=null && !s.getUserId().equals(userId)) return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+        activityClient.deleteSubscription(id);
+        return new ResponseEntity<>(HttpStatus.OK);
     }
 }
