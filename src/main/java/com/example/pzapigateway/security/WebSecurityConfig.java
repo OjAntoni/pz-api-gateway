@@ -23,6 +23,7 @@ public class WebSecurityConfig {
         // Disable CSRF (cross site request forgery)
         http.csrf(AbstractHttpConfigurer::disable);
 
+        http.cors(AbstractHttpConfigurer::disable);
         // No session will be created or used by spring security
         http.sessionManagement(mng -> mng.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
