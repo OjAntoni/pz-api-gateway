@@ -20,4 +20,5 @@ public class NewArticleReqDto {
     private List<String> tags;
     private String content;
     private List<URL> images;
+    private TopicRespDto topic;
 }
