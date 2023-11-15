@@ -8,6 +8,7 @@ class PzApiGatewayApplicationTests {
 
     @Test
     void contextLoads() {
+
     }
 
 }
