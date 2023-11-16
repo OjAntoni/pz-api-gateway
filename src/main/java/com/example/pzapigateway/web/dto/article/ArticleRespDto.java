@@ -15,7 +15,7 @@ import java.util.UUID;
 public class ArticleRespDto {
 
     private UUID id;
-    private UUID author;
+    private long author;
 
     private TopicRespDto topic;
     private String title;

@@ -15,7 +15,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class NewArticleReqDto {
-    private UUID author;
+    private long author;
     private String title;
     private List<String> tags;
     private String content;

@@ -10,6 +10,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SubscriptionReqDto {
-    private UUID userId;
+    private long userId;
     private UUID topicId;
 }

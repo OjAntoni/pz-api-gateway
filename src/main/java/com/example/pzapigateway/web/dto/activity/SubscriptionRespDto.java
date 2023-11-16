@@ -11,6 +11,6 @@ import java.util.UUID;
 @AllArgsConstructor
 public class SubscriptionRespDto {
     private UUID id;
-    private UUID userId;
+    private long userId;
     private UUID topicId;
 }

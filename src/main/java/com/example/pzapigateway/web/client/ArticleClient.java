@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-@FeignClient(name = "article-client", url = "${article-client.url}")
+@FeignClient(name = "TOPIC-SERVICE")
 public interface ArticleClient {
 
     @PostMapping("/api/v1/article")
@@ -26,7 +26,7 @@ public interface ArticleClient {
 
     @GetMapping("/api/v1/article/search")
     List<ArticleRespDto> searchArticle(
-            @RequestParam(required = false) UUID author,
+            @RequestParam(required = false) long author,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) List<String> tags,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
@@ -54,10 +54,10 @@ public interface ArticleClient {
     void deleteTopic(@PathVariable UUID id);
 
     @GetMapping("/api/v1/article/all/{id}")
-    List<ArticleRespDto> getArticles(@PathVariable(name = "id") UUID userId);
+    List<ArticleRespDto> getArticles(@PathVariable(name = "id") long userId);
 
     @GetMapping("/api/v1/topic/all/{id}")
-    List<TopicRespDto> getTopics(@PathVariable(name = "id") UUID userId);
+    List<TopicRespDto> getTopics(@PathVariable(name = "id") long userId);
 
     @GetMapping("/api/v1/article/{id}")
     ArticleRespDto getArticle(@PathVariable UUID id);

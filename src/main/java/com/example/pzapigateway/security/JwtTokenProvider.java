@@ -28,7 +28,7 @@ public class JwtTokenProvider {
      * THIS IS NOT A SECURE PRACTICE! For simplicity, we are storing a static key here. Ideally, in a
      * microservices environment, this key would be kept on a config-server.
      */
-    @Value("${jwt.secret-key}")
+    @Value("${travelio.jwt.secret}")
     private String secretKey;
 
     @PostConstruct

@@ -13,7 +13,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class NewTopicReqDto {
-    private UUID author;
+    private long author;
     private String title;
     private String description;
 }

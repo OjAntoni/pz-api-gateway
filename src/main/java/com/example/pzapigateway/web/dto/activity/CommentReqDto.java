@@ -10,7 +10,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CommentReqDto {
-    private UUID authorId;
+    private long authorId;
     private String content;
     private UUID articleId;
 }

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-@FeignClient(name = "user-activity-client", url = "${user-activity-client.url}")
+@FeignClient(name = "ENGAGE-HUB-SERVICE")
 public interface UserActivityClient {
 
     @GetMapping("/api/v1/comment")
@@ -27,7 +27,7 @@ public interface UserActivityClient {
     void deleteComment(@PathVariable UUID id);
 
     @GetMapping("/api/v1/subscription")
-    List<SubscriptionRespDto> getSubscriptions(@RequestParam UUID userId);
+    List<SubscriptionRespDto> getSubscriptions(@RequestParam long userId);
 
     @PostMapping("/api/v1/subscription")
     SubscriptionRespDto saveSubscription(@RequestBody SubscriptionReqDto dto);

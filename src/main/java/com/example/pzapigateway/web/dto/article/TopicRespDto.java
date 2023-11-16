@@ -9,7 +9,7 @@ import java.util.UUID;
 @NoArgsConstructor
 public class TopicRespDto {
     private UUID id;
-    private UUID author;
+    private long author;
     private String title;
     private String description;
 }
